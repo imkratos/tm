@@ -58,9 +58,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create and checkout a branch if in detached HEAD state
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$CURRENT_BRANCH" = "HEAD" ]; then
+            echo "In detached HEAD state, creating branch homebrew-update"
+            git checkout -b homebrew-update
+          fi
+          
           git add homebrew/tm-cli.rb
           git commit -m "chore: update homebrew formula to v${VERSION}" || echo "no changes to commit"
-          git push || echo "git push failed (maybe branch protection) - consider opening a PR instead"
+          git push origin HEAD || echo "git push failed (maybe branch protection) - consider opening a PR instead"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
