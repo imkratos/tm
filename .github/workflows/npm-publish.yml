@@ -9,18 +9,21 @@ on:
         description: 'Version to publish (e.g., 1.0.1)'
         required: false
 
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,10 +47,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
+          git commit -m "chore: bump version to ${{ github.event.inputs.version }}" || echo "no version change"
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure NPM token is set
+        id: check_token
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM token is not set. Set secrets.NPM_TOKEN in repository settings."
+            exit 1
+          fi
 
       - name: Publish to NPM
+        if: always() && steps.check_token.outcome == 'success'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -57,3 +71,5 @@ jobs:
         run: |
           git tag v${{ github.event.inputs.version }}
           git push origin v${{ github.event.inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
