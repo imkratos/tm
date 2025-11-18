@@ -56,11 +56,26 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # VERSION is already available from GITHUB_ENV set in previous step
+          BRANCH="homebrew-update-v${VERSION}"
+          # Create and switch to new branch (or switch if it already exists)
+          if git show-ref --verify --quiet refs/heads/${BRANCH}; then
+            git switch ${BRANCH}
+          else
+            git switch -c ${BRANCH}
+          fi
           git add homebrew/tm-cli.rb
-          git commit -m "chore: update homebrew formula to v${VERSION}" || echo "no changes to commit"
-          git push || echo "git push failed (maybe branch protection) - consider opening a PR instead"
+          # Check if there are staged changes to avoid commit failure
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update homebrew formula to v${VERSION}"
+          fi
+          # Push and set upstream branch
+          git push --set-upstream origin ${BRANCH}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
