@@ -1,0 +1,51 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download release tarball
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          curl -sL https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz -o tm-cli-${VERSION}.tar.gz
+          SHA256=$(shasum -a 256 tm-cli-${VERSION}.tar.gz | awk '{print $1}')
+          echo "SHA256=${SHA256}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Update Homebrew Formula
+        run: |
+          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew/tm-cli.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew/tm-cli.rb
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add homebrew/tm-cli.rb
+          git commit -m "chore: update homebrew formula to v${VERSION}" || exit 0
+          git push
+
+      - name: Create Homebrew Tap PR (Optional)
+        run: |
+          echo "To publish to Homebrew, create a PR to homebrew-core with the updated formula"
+          echo "Or create your own tap repository at https://github.com/imkratos/homebrew-tap"

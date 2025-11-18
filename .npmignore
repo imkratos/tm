@@ -1,0 +1,39 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Tests
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+
+# Development files
+.github/
+homebrew/
+node_modules/
+.vscode/
+.idea/
+
+# Config files
+tsconfig.json
+jest.config.js
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (keep README.md)
+PUBLISHING.md
+CLAUDE.md
+
+# Misc
+*.log
+.DS_Store
+.env
+.env.*
