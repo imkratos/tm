@@ -5,36 +5,53 @@ on:
     types: [created]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-formula:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get version
         id: get_version
         run: |
-          if [ "${{ github.event_name }}" == "release" ]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Use the release's tag_name (exact), normalize by removing leading v or V for VERSION.
+            TAG="${{ github.event.release.tag_name }}"
+            # Remove leading v or V for VERSION but keep TAG for URL
+            VERSION="${TAG#v}"
+            VERSION="${VERSION#V}"
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
           else
-            echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+            VERSION=$(jq -r .version package.json)
+            # For workflow_dispatch we set tag to v${VERSION} by default
+            TAG="v${VERSION}"
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download release tarball
         run: |
+          TAG=${{ steps.get_version.outputs.tag }}
           VERSION=${{ steps.get_version.outputs.version }}
-          curl -sL https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz -o tm-cli-${VERSION}.tar.gz
+          echo "Downloading tag=$TAG version=$VERSION"
+          curl -sL https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz -o tm-cli-${VERSION}.tar.gz
           SHA256=$(shasum -a 256 tm-cli-${VERSION}.tar.gz | awk '{print $1}')
           echo "SHA256=${SHA256}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Update Homebrew Formula
         run: |
-          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew/tm-cli.rb
+          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.get_version.outputs.tag }}.tar.gz\"|" homebrew/tm-cli.rb
           sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew/tm-cli.rb
 
       - name: Commit and push changes
@@ -42,10 +59,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add homebrew/tm-cli.rb
-          git commit -m "chore: update homebrew formula to v${VERSION}" || exit 0
-          git push
+          git commit -m "chore: update homebrew formula to v${VERSION}" || echo "no changes to commit"
+          git push || echo "git push failed (maybe branch protection) - consider opening a PR instead"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Homebrew Tap PR (Optional)
+        if: false
         run: |
           echo "To publish to Homebrew, create a PR to homebrew-core with the updated formula"
           echo "Or create your own tap repository at https://github.com/imkratos/homebrew-tap"
