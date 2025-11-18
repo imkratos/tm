@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        run: npm test --if-present
 
       - name: Build project
         run: npm run build
