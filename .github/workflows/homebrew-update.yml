@@ -56,11 +56,26 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # VERSION 已由前一步写入 GITHUB_ENV
+          BRANCH="homebrew-update-v${VERSION}"
+          # 如果本地已存在该分支则切换，否则创建
+          if git show-ref --verify --quiet refs/heads/${BRANCH}; then
+            git switch ${BRANCH}
+          else
+            git switch -c ${BRANCH}
+          fi
           git add homebrew/tm-cli.rb
-          git commit -m "chore: update homebrew formula to v${VERSION}" || echo "no changes to commit"
-          git push || echo "git push failed (maybe branch protection) - consider opening a PR instead"
+          # 仅在有 staged 更改时 commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update homebrew formula to v${VERSION}"
+          fi
+          # 推送并设置上游分支
+          git push --set-upstream origin ${BRANCH}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
