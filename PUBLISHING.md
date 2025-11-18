@@ -2,6 +2,10 @@
 
 本文档说明如何将 tm-cli 发布到 npm 和 Homebrew。
 
+**中文** | [English](PUBLISHING_EN.md)
+
+---
+
 ## 前置准备
 
 ### 1. NPM 发布准备
