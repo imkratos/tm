@@ -75,7 +75,7 @@ jobs:
             git commit -m "chore: update homebrew formula to v${VERSION}"
           fi
           # 推送并设置上游分支
-          git push --set-upstream origin ${BRANCH}
+          git push --force --set-upstream origin ${BRANCH}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
